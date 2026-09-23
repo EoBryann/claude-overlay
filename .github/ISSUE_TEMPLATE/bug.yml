@@ -1,0 +1,57 @@
+name: Bug
+description: Algo não funciona como deveria
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado por reportar! Antes de enviar, confira se o `overlay.log` e o `hook.log` (na pasta do overlay) não têm dados seus que você não queira publicar, como caminhos ou trechos de prompts.
+  - type: textarea
+    id: oque
+    attributes:
+      label: O que aconteceu
+      description: E o que você esperava que acontecesse.
+    validations:
+      required: true
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como reproduzir
+      placeholder: |
+        1. Abri duas sessões no VS Code...
+        2. ...
+  - type: input
+    id: windows
+    attributes:
+      label: Versão do Windows
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: input
+    id: claude
+    attributes:
+      label: Versão do Claude Code
+      description: Saída de `claude --version`.
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Versão do Node.js
+      description: Saída de `node --version`.
+  - type: dropdown
+    id: onde
+    attributes:
+      label: Onde as sessões rodam
+      multiple: true
+      options:
+        - Terminal (CLI)
+        - Extensão do VS Code
+        - Extensão do Cursor
+        - Outro
+  - type: textarea
+    id: diagnostico
+    attributes:
+      label: Diagnóstico
+      description: Saída de `powershell -File overlay.ps1 -Diagnostico` e as últimas linhas do `overlay.log` e do `hook.log`. Revise antes de colar.
+      render: text
