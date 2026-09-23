@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 'use strict';
 // Claude Overlay - coletor de eventos dos hooks do Claude Code.
-// Uso (configurado em settings.json, forma exec):  node hook.js <perfil>
-// Le o JSON do evento no stdin e grava ~/.claude-overlay/state/<perfil>/<session_id>.json
+// Uso (instalado pelo instalar.js no settings.json de cada perfil, forma exec):  node hook.js <id-do-perfil>
+// Le o JSON do evento no stdin e grava <pasta do overlay>/state/<perfil>/<session_id>.json
 // Nunca escreve no stdout (stdout de hook vira contexto/mensagem no Claude) e sempre sai com 0.
 
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
-const perfil = String(process.argv[2] || 'desconhecido').toLowerCase();
-const base = path.join(os.homedir(), '.claude-overlay');
+const perfil = String(process.argv[2] || 'desconhecido').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || 'desconhecido';
+const base = __dirname;
 const dir = path.join(base, 'state', perfil);
 const logPath = path.join(base, 'hook.log');
 

@@ -1,5 +1,5 @@
 ﻿<#
-  Claude Overlay - janela sempre no topo com as sessões do Claude Code (perfis Empresa e Pessoal).
+  Claude Overlay - janela sempre no topo com as sessões do Claude Code de um ou mais perfis (config.json).
   Uso:  powershell -STA -File overlay.ps1               janela
         powershell -File overlay.ps1 -Diagnostico       imprime as sessões e sai
         powershell -File overlay.ps1 -TestarToast       dispara um toast e sai
@@ -8,13 +8,13 @@ param([switch]$Diagnostico, [switch]$TestarToast)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml
 
-$script:Base    = Join-Path $env:USERPROFILE '.claude-overlay'
+$script:Base    = $PSScriptRoot
+if (-not $script:Base) { $script:Base = Split-Path -Parent $MyInvocation.MyCommand.Path }
 $script:LogPath = Join-Path $script:Base 'overlay.log'
 $script:PosPath = Join-Path $script:Base 'overlay.pos.json'
-$script:Perfis  = @(
-  [pscustomobject]@{ Nome = 'Empresa'; Chave = 'empresa'; Cfg = (Join-Path $env:USERPROFILE '.claude-empresa') },
-  [pscustomobject]@{ Nome = 'Pessoal'; Chave = 'pessoal'; Cfg = (Join-Path $env:USERPROFILE '.claude') }
-)
+$script:ConfigPath = Join-Path $script:Base 'config.json'
+$script:Perfis  = @()
+$script:ConfigLida = $null
 $script:Estados = @{
   permission  = @{ Rotulo = 'pede permissão'; Peso = 0 }
   needs_input = @{ Rotulo = 'esperando você'; Peso = 1 }
@@ -44,6 +44,54 @@ function Read-Json([string]$path) {
   try { return (Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json) } catch { return $null }
 }
 function AgoraMs { return [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() }
+
+# ---- perfis (config.json) ----
+# Cada perfil e um CLAUDE_CONFIG_DIR. O id tem que ser o mesmo que o instalar.js passou ao hook.
+function Expandir-Pasta([string]$p) {
+  if (-not $p) { return '' }
+  if ($p -eq '~' -or $p.StartsWith('~/') -or $p.StartsWith('~\')) { $p = $env:USERPROFILE + $p.Substring(1) }
+  return [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($p))
+}
+function Id-Perfil([string]$nome) {
+  # mesma regra do slug() do instalar.js
+  $s = $nome.Normalize([Text.NormalizationForm]::FormD)
+  $s = -join ($s.ToCharArray() | Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne [Globalization.UnicodeCategory]::NonSpacingMark })
+  $s = ($s.ToLowerInvariant() -replace '[^a-z0-9_-]+', '-').Trim('-')
+  if (-not $s) { $s = 'perfil' }
+  return $s
+}
+function Atualizar-Perfis {
+  # relê o config.json quando ele muda, sem precisar reabrir a janela
+  $marca = 'sem-config'
+  if (Test-Path -LiteralPath $script:ConfigPath) { $marca = [string](Get-Item -LiteralPath $script:ConfigPath).LastWriteTimeUtc.Ticks }
+  if ($marca -eq $script:ConfigLida) { return }
+  $script:ConfigLida = $marca
+  $lista = New-Object System.Collections.ArrayList
+  $cfg = Read-Json $script:ConfigPath
+  if ($cfg -and $cfg.perfis) {
+    foreach ($p in @($cfg.perfis)) {
+      try {
+        $pasta = Expandir-Pasta ([string]$p.pasta)
+        if (-not $pasta) { continue }
+        $nome = [string]$p.nome
+        if (-not $nome) { $nome = Split-Path -Leaf $pasta }
+        $id = [string]$p.id
+        if (-not $id) { $id = Id-Perfil $nome }
+        [void]$lista.Add([pscustomobject]@{ Nome = $nome; Chave = $id.ToLowerInvariant(); Cfg = $pasta; Ordem = $lista.Count })
+      } catch { Log ('perfil inválido no config.json: ' + $_.Exception.Message) }
+    }
+  } elseif (Test-Path -LiteralPath $script:ConfigPath) {
+    Log 'config.json sem "perfis" ou com JSON inválido; usando o perfil padrão'
+  }
+  if ($lista.Count -eq 0) {
+    # sem config: o perfil padrão do Claude Code
+    $pasta = $env:CLAUDE_CONFIG_DIR
+    if (-not $pasta) { $pasta = Join-Path $env:USERPROFILE '.claude' }
+    [void]$lista.Add([pscustomobject]@{ Nome = 'Claude'; Chave = 'claude'; Cfg = (Expandir-Pasta $pasta); Ordem = 0 })
+  }
+  $script:Perfis = @($lista)
+  $script:Assinatura = ''
+}
 function Tempo-Atras([int64]$ms) {
   if ($ms -le 0) { return '' }
   $s = [int](((AgoraMs) - $ms) / 1000)
@@ -117,6 +165,7 @@ function Titulo-Sessao($perfil, [string]$sid, [string]$transcript, [int64]$em) {
 }
 
 function Get-Sessoes {
+  Atualizar-Perfis
   $vivos = @{}
   foreach ($p in @(Get-Process -Name claude, node -ErrorAction SilentlyContinue)) { $vivos[[int]$p.Id] = $true }
   $lista = New-Object System.Collections.ArrayList
@@ -149,13 +198,13 @@ function Get-Sessoes {
       if ($r.cwd) { $pasta = Split-Path -Leaf ([string]$r.cwd) }
       $titulo = Titulo-Sessao $perfil ([string]$r.sessionId) $transcript $em
       [void]$lista.Add([pscustomobject]@{
-        Perfil = $perfil.Nome; Chave = $perfil.Chave; SessionId = [string]$r.sessionId; ProcId = [int]$r.pid
+        Perfil = $perfil.Nome; Chave = $perfil.Chave; Ordem = $perfil.Ordem; SessionId = [string]$r.sessionId; ProcId = [int]$r.pid
         Nome = [string]$r.name; Titulo = $titulo; Pasta = $pasta; Cwd = [string]$r.cwd; Estado = $estado; Detalhe = $detalhe
         Em = $em; Subagentes = $subs; Peso = [int]$script:Estados[$estado].Peso
       })
     }
   }
-  return @($lista | Sort-Object -Property @{Expression = 'Perfil'}, @{Expression = 'Peso'}, @{Expression = 'Em'; Descending = $true})
+  return @($lista | Sort-Object -Property @{Expression = 'Ordem'}, @{Expression = 'Peso'}, @{Expression = 'Em'; Descending = $true})
 }
 
 function Show-Toast([string]$titulo, [string]$texto) {

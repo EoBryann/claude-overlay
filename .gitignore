@@ -2,6 +2,7 @@
 state/
 *.tmp
 
-# logs e preferências locais da janela
+# logs, preferências da janela e os perfis de cada máquina
 *.log
 overlay.pos.json
+config.json

@@ -1,0 +1,6 @@
+{
+  "perfis": [
+    { "nome": "Trabalho", "id": "trabalho", "pasta": "~/.claude-trabalho" },
+    { "nome": "Pessoal", "id": "pessoal", "pasta": "~/.claude" }
+  ]
+}
