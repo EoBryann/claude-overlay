@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Problemas no próprio Claude Code
+    url: https://github.com/anthropics/claude-code/issues
+    about: Bugs do Claude Code (não do overlay) vão para o repositório oficial.

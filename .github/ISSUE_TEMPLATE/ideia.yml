@@ -1,0 +1,19 @@
+name: Ideia
+description: Sugira um recurso ou melhoria
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qual problema isso resolve
+      description: Conte o que você tenta fazer hoje e onde o overlay atrapalha ou não ajuda.
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Como você imagina
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas que você considerou
