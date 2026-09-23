@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Sintaxe do JavaScript
+        run: node --check hook.js && node --check instalar.js && node --check tests/instalar.test.js && node --check tools/gerar-prints.js
+
+      - name: Sintaxe do PowerShell 5.1 e BOM do overlay.ps1
+        shell: powershell
+        run: |
+          $erros = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\overlay.ps1", [ref]$null, [ref]$erros)
+          if ($erros) { $erros | ForEach-Object { Write-Host "::error file=overlay.ps1,line=$($_.Extent.StartLineNumber)::$($_.Message)" }; exit 1 }
+          $b = [IO.File]::ReadAllBytes("$PWD\overlay.ps1")
+          if (-not ($b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF)) { Write-Host '::error file=overlay.ps1::sem BOM UTF-8; o PowerShell 5.1 lê os acentos errado'; exit 1 }
+
+      - name: Testes
+        run: node tests/instalar.test.js
