@@ -44,4 +44,4 @@ Para testar a janela com o código da sua branch, feche o overlay aberto e abra 
 
 ## Commits
 
-Mensagens em português, com prefixo: `Feat:`, `Fix:`, `Docs:`, `Test:`, `CI:` ou `Refactor:`. Exemplo: `Fix: toast duplicado quando o idle_prompt repete`.
+Mensagens em português, com prefixo: `Feat:`, `Fix:`, `Docs:`, `Test:`, `CI:`, `Chore:` ou `Refactor:`. Exemplo: `Fix: toast duplicado quando o idle_prompt repete`.
