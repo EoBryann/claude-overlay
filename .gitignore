@@ -1,0 +1,7 @@
+# estado das sessões gravado pelos hooks (tem trechos dos prompts e respostas)
+state/
+*.tmp
+
+# logs e preferências locais da janela
+*.log
+overlay.pos.json
